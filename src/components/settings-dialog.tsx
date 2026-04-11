@@ -38,8 +38,11 @@ import {
   CheckIcon,
   BookOpenIcon,
   RadioIcon,
+  HelpCircleIcon,
+  GraduationCapIcon,
 } from "lucide-react"
 import { useSettingsStore } from "@/stores"
+import { useTutorialStore } from "@/stores/tutorial-store"
 import { useSettingsDialogStore } from "@/lib/settings-dialog"
 import type { DeviceInfo } from "@/types/audio"
 
@@ -47,7 +50,7 @@ import type { DeviceInfo } from "@/types/audio"
 /*  Nav definition                                                            */
 /* -------------------------------------------------------------------------- */
 
-type NavSection = "audio" | "bible" | "display" | "api-keys" | "remote"
+type NavSection = "audio" | "bible" | "display" | "api-keys" | "remote" | "help"
 
 const navItems: { name: string; id: NavSection; icon: React.ReactNode }[] = [
   {
@@ -74,6 +77,11 @@ const navItems: { name: string; id: NavSection; icon: React.ReactNode }[] = [
     name: "API Keys",
     id: "api-keys",
     icon: <KeyIcon strokeWidth={2} />,
+  },
+  {
+    name: "Help",
+    id: "help",
+    icon: <HelpCircleIcon strokeWidth={2} />,
   },
 ]
 
@@ -328,6 +336,7 @@ const sectionTitles: Record<NavSection, string> = {
   display: "Display Mode",
   remote: "Remote Control",
   "api-keys": "API Keys",
+  help: "Help",
 }
 
 /* -------------------------------------------------------------------------- */
@@ -681,6 +690,67 @@ function RemoteControlSection() {
   )
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Section: Help                                                             */
+/* -------------------------------------------------------------------------- */
+
+function HelpSection() {
+  const closeSettings = useSettingsDialogStore((s) => s.closeSettings)
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">
+          Resources to help you get the most out of Rhema.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <GraduationCapIcon className="size-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Interactive Tutorial</p>
+              <p className="text-xs text-muted-foreground">
+                Step-by-step walkthrough of every feature
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              closeSettings()
+              setTimeout(() => {
+                useTutorialStore.getState().startTutorial()
+              }, 300)
+            }}
+          >
+            <GraduationCapIcon className="mr-1.5 size-3.5" />
+            Restart
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <KeyIcon className="size-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Keyboard Shortcuts</p>
+              <p className="text-xs text-muted-foreground">
+                Arrow keys navigate the tutorial, Esc to dismiss
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StatusDot({ running }: { running: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -702,6 +772,7 @@ const sectionComponents: Record<NavSection, React.FC> = {
   display: DisplayModeSection,
   remote: RemoteControlSection,
   "api-keys": ApiKeysSection,
+  help: HelpSection,
 }
 
 /*  Main dialog                                                               */
@@ -728,7 +799,7 @@ export function SettingsDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon-sm">
+        <Button variant="ghost" size="icon-sm" data-tour="settings">
           <SettingsIcon className="size-3.5" />
         </Button>
       </DialogTrigger>
