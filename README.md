@@ -1,26 +1,40 @@
-# Rhema
+<p align="center">
+  <img src="public/rhema.svg" alt="Rhema logo" width="160" height="160" />
+</p>
 
-Real-time AI-powered Bible verse detection for live sermons and broadcasts. A Tauri v2 desktop app with a React frontend and Rust backend.
+<h1 align="center">Rhema</h1>
+
+<p align="center">Real-time AI-powered Bible verse detection for live sermons and broadcasts. A Tauri v2 desktop app with a React frontend and Rust backend.</p>
 
 Rhema listens to a live sermon audio feed, transcribes speech in real time, detects Bible verse references (both explicit citations and quoted passages), and renders them as broadcast-ready overlays via NDI for live production.
 
 ## Features
 
-- **Real-time speech-to-text** via Deepgram (WebSocket streaming + REST fallback)
+- **Real-time speech-to-text** via local Whisper or cloud Deepgram (WebSocket streaming + REST fallback)
+  - Whisper runs locally with no API costs; Deepgram streams via WebSocket with REST fallback
+- **Voice-controlled translation switching** — say "read in NIV" or "switch to ESV" to change translations instantly during a sermon
 - **Multi-strategy verse detection**
   - Direct reference parsing (Aho-Corasick automaton + fuzzy matching)
   - Semantic search (Qwen3-0.6B ONNX embeddings + HNSW vector index)
   - Quotation matching against known verse text
   - Cloud booster (optional, OpenAI/Claude)
+  - Reading mode — locks to book/chapter as soon as it's mentioned, with voice navigation ("next chapter", "chapter 5")
   - Sermon context tracking and sentence buffering
-- **SQLite Bible database** with FTS5 full-text search
+- **SQLite Bible database** with FTS5 full-text search and BM25 ranking
 - **Multiple translations** — KJV, NIV, ESV, NASB, NKJV, NLT, AMP + Spanish, French, Portuguese
 - **Cross-reference lookup** (340k+ refs from openbible.info)
 - **NDI broadcast output** for live production integration
 - **Theme designer** — visual canvas editor for verse overlays with backgrounds (solid, gradient, image), text styling, positioning, shadows, and outlines
-- **Verse queue** with drag-and-drop ordering
+- **Verse queue** with drag-and-drop ordering and duplicate prevention (flash-highlight on duplicates)
+- **Quick navigation** — keyboard-driven verse entry with autocomplete (e.g., type "J" → Joshua, Tab through book → chapter → verse)
 - **Fuzzy contextual search** (Fuse.js client-side)
 - **Audio level metering**, live indicator, and session timer
+- **Interactive onboarding tutorial** — 11-step guided tour covering all panels, auto-launches on first startup
+- **Light/dark mode** with system theme detection (light, dark, or follow OS)
+- **Settings persistence** — all preferences auto-saved to disk across restarts
+- **Cross-platform** — Windows, macOS, and Linux
+- **Remote control** via OSC and HTTP API for hardware controllers and automation
+  - [Remote control guide](documentation/remote-control.md) — Stream Deck, TouchOSC, REST API integration
 
 ## Tech Stack
 
@@ -51,7 +65,44 @@ Rhema listens to a live sermon audio feed, transcribes speech in real time, dete
 - [Rust](https://rustup.rs/) toolchain (stable, 1.77.2+)
 - [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) (platform-specific system dependencies)
 - [Python 3](https://www.python.org/) (for downloading copyrighted translations and embedding model export)
-- [Deepgram API key](https://deepgram.com/) (for speech-to-text)
+- CMake + LLVM/libclang (required for local Whisper STT) — see [Platform-specific setup](#platform-specific-setup) below
+- [Deepgram API key](https://deepgram.com/) (optional, for cloud speech-to-text instead of Whisper)
+
+### Platform-specific setup
+
+The local Whisper STT build compiles `whisper.cpp` from source, which requires CMake and `libclang` (via `bindgen`). Pick the command block for your OS:
+
+**macOS**
+
+```bash
+brew install cmake
+```
+
+**Linux (Debian/Ubuntu)**
+
+```bash
+sudo apt install cmake clang libclang-dev
+```
+
+**Linux (Arch)**
+
+```bash
+sudo pacman -S llvm clang cmake
+```
+
+**Windows**
+
+Windows needs an extra build-tools bootstrap before the shared setup pipeline — LLVM/libclang and CMake aren't available out of the box.
+
+1. Install [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) with the **Desktop development with C++** workload (provides MSVC).
+2. From the repo root:
+   ```powershell
+   bun install
+   bun run setup:windows
+   ```
+   This installs LLVM + CMake via `winget` and persists `LIBCLANG_PATH`.
+3. **Close the terminal and open a new one** so `LIBCLANG_PATH` is inherited by subsequent commands.
+4. Continue with [Quick Setup](#quick-setup-recommended) (`bun run setup:all`) and then `bun run tauri dev`.
 
 ## Getting Started
 
@@ -64,6 +115,8 @@ bun install
 ### Quick Setup (recommended)
 
 One command sets up everything — Python virtual environment, Bible data, copyrighted translations, database, ONNX model, and precomputed embeddings:
+
+> **Windows:** run `bun run setup:windows` *before* `setup:all` and restart your terminal. See [Platform-specific setup](#platform-specific-setup) above.
 
 ```bash
 bun run setup:all
@@ -81,11 +134,23 @@ This runs 7 phases in sequence, skipping any that are already complete:
 
 ### Environment
 
+#### Speech-to-Text Options
+
+Rhema supports two speech-to-text engines:
+
+**Option 1: Whisper (Local, Free)**
+No setup required! Whisper runs locally on your machine with no API costs or internet dependency.
+- Requires CMake + libclang — see [Platform-specific setup](#platform-specific-setup) above
+- Model downloads automatically on first use
+
+**Option 2: Deepgram (Cloud, Paid)**
 Create a `.env` file in the project root:
 
 ```
 DEEPGRAM_API_KEY=your_key_here
 ```
+
+Get your API key at [deepgram.com](https://deepgram.com/)
 
 ### NDI SDK (optional)
 
@@ -187,10 +252,14 @@ rhema/
 | `quantize:model` | Quantize ONNX model to INT8 for ARM64 |
 | `download:ndi-sdk` | Download NDI 6 SDK headers and platform libraries |
 
+## Security
+
+Rhema enforces a restrictive Content Security Policy on the Tauri webview to prevent script injection and unauthorized data exfiltration. The policy is defined in `src-tauri/tauri.conf.json`; see **[SECURITY.md](.github/SECURITY.md)** for the directive-by-directive rationale, threat model, and vulnerability reporting process.
+
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (optional):
 
 | Variable | Required | Description |
 |---|---|---|
-| `DEEPGRAM_API_KEY` | Yes | API key for Deepgram speech-to-text |
+| `DEEPGRAM_API_KEY` | Optional | API key for Deepgram speech-to-text (not needed if using Whisper) |

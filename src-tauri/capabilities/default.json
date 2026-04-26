@@ -9,6 +9,9 @@
   ],
   "permissions": [
     "core:default",
-    "store:default"
+    "store:default",
+    "dialog:default",
+    "fs:default",
+    "fs:allow-write-text-file"
   ]
 }
